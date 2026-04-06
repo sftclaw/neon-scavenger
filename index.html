@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Scavenger ⚡</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background: #050505; overflow: hidden; font-family: 'Courier New', monospace; touch-action: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; color: white; pointer-events: none; display: flex; justify-content: space-between; }
+        .stat-box { background: rgba(0,0,0,0.5); padding: 10px; border: 1px solid #333; border-radius: 4px; }
+        #combo-display { color: #fbbf24; font-size: 1.5rem; font-weight: bold; opacity: 0; transition: opacity 0.2s; }
+        #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; }
+        button { padding: 15px 30px; font-size: 1.2rem; background: #0ea5e9; border: none; color: white; cursor: pointer; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div id="ui-layer">
+        <div class="stat-box">SCORE: <span id="score">0</span></div>
+        <div id="combo-display">COMBO x2</div>
+        <div class="stat-box">HP: <span id="hp">100</span>%</div>
+    </div>
+    <div id="game-over">
+        <h1 style="color: #ef4444; font-size: 3rem;">SYSTEM FAILURE</h1>
+        <p>Final Score: <span id="final-score">0</span></p>
+        <button onclick="location.reload()">REBOOT SYSTEM</button>
+    </div>
+
+    <script>
+        class ScavengerGame extends Phaser.Scene {
+            constructor() { super('ScavengerGame'); }
+
+            create() {
+                this.score = 0;
+                this.hp = 100;
+                this.combo = 0;
+                this.heat = 1;
+                this.items = this.add.group();
+                
+                // Particle Manager for "Juice"
+                this.particles = this.add.particles(0, 0, 'particle', {
+                    speed: 100, scale: { start: 1, end: 0 }, blendMode: 'ADD', lifespan: 500
+                });
+                // Create a simple texture for particles
+                const graphics = this.make.graphics({x: 0, y: 0, add: false});
+                graphics.fillStyle(0xffffff, 1);
+                graphics.fillCircle(5, 5, 5);
+                graphics.generateTexture('particle', 10, 10);
+
+                this.spawnLoop = this.time.addEvent({ delay: 1000, callback: this.spawnItem, callbackScope: this, loop: true });
+                this.input.on('gameobjectdown', this.handleItemClick, this);
+            }
+
+            spawnItem() {
+                const x = Phaser.Math.Between(50, 750);
+                const y = Phaser.Math.Between(50, 550);
+                const type = Math.random() > 0.85 ? 'virus' : 'loot';
+                
+                // Procedural SVG-like Graphics
+                const item = this.add.graphics();
+                const color = type === 'loot' ? 0x0ea5e9 : 0xef4444;
+                
+                if (type === 'loot') {
+                    // Draw a Neon Orb
+                    item.lineStyle(3, color, 1);
+                    item.strokeCircle(0, 0, 20);
+                    item.fillStyle(color, 0.2);
+                    item.fillCircle(0, 0, 20);
+                } else {
+                    // Draw a Spiky Virus
+                    item.fillStyle(color, 0.8);
+                    for(let i=0; i<8; i++) item.fillTriangle(0, 0, 15, 15, 25, 0).rotateAround(0, 0, Math.PI/4);
+                }
+
+                item.x = x; item.y = y;
+                item.setData({ type: type, active: true });
+                item.setScale(0);
+                
+                // Spawn Animation
+                this.tweens.add({ targets: item, scale: 1, duration: 300 / this.heat });
+
+                // Movement & Despawn
+                this.tweens.add({
+                    targets: item, x: x + Phaser.Math.Between(-100, 100), y: y + Phaser.Math.Between(-100, 100),
+                    duration: 2000 / this.heat, yoyo: true,
+                    onComplete: () => {
+                        if(item.active) {
+                            this.tweens.add({ targets: item, alpha: 0, scale: 0, duration: 200, onComplete: () => {
+                                item.destroy();
+                                if(type === 'loot') this.resetCombo();
+                            }});
+                        }
+                    }
+                });
+
+                item.setInteractive({ hitArea: new Phaser.Geom.Circle(0, 0, 25), hitAreaCallback: Phaser.Geom.Circle.Contains });
+                this.items.add(item);
+            }
+
+            handleItemClick(pointer, item) {
+                if(!item.active) return;
+                
+                if(item.getData('type') === 'virus') {
+                    this.cameras.main.shake(200, 0.02);
+                    this.hp -= 20;
+                    this.resetCombo();
+                } else {
+                    this.combo++;
+                    const multiplier = this.combo > 5 ? 2 : 1;
+                    this.score += 50 * multiplier;
+                    this.createExplosion(item.x, item.y, 0x0ea5e9);
+                    if(this.combo === 5) this.triggerComboMode();
+                }
+
+                item.active = false;
+                this.tweens.add({ targets: item, scale: 1.5, alpha: 0, duration: 100, onComplete: () => item.destroy() });
+                this.updateUI();
+
+                if(this.hp <= 0) this.gameOver();
+                
+                // Increase Heat (Difficulty)
+                this.heat += 0.05;
+                this.spawnLoop.reset(1000 / this.heat);
+            }
+
+            triggerComboMode() {
+                const comboText = document.getElementById('combo-display');
+                comboText.style.opacity = 1;
+                this.cameras.main.flash(500, 251, 191, 36);
+                this.time.delayedCall(5000, () => { comboText.style.opacity = 0; this.combo = 0; });
+            }
+
+            resetCombo() { this.combo = 0; document.getElementById('combo-display').style.opacity = 0; }
+
+            createExplosion(x, y, color) {
+                this.particles.emitParticleAt(x, y, 10);
+            }
+
+            updateUI() {
+                document.getElementById('score').innerText = this.score;
+                document.getElementById('hp').innerText = this.hp;
+            }
+
+            gameOver() {
+                this.scene.pause();
+                document.getElementById('game-over').style.display = 'flex';
+                document.getElementById('final-score').innerText = this.score;
+            }
+        }
+
+        const game = new Phaser.Game({
+            type: Phaser.AUTO, width: 800, height: 600, backgroundColor: '#050505',
+            scene: [ScavengerGame], scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
+        });
+    </script>
+</body>
+</html>
