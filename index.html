@@ -2,228 +2,121 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Neon Scavenger ⚡</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { 
-            width: 100%; height: 100%; background: #050505; overflow: hidden; 
-            font-family: 'Courier New', monospace; touch-action: none; user-select: none;
-        }
+        html, body { width: 100%; height: 100%; background: #050505; overflow: hidden; font-family: 'Courier New', monospace; touch-action: none; }
         #game-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        .overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #050505; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: white; text-align: center; padding: 20px;
-        }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #050505; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; }
         .hidden { display: none !important; }
-        h1 { font-size: 2rem; color: #0ea5e9; text-shadow: 0 0 20px #0ea5e9; margin-bottom: 10px; }
-        p { color: #94a3b8; max-width: 300px; line-height: 1.5; font-size: 0.9rem; margin-bottom: 20px; }
-        .rules-box {
-            background: #0f172a; border: 1px solid #1e293b; padding: 15px; border-radius: 8px;
-            margin-bottom: 25px; text-align: left; width: 90%; max-width: 300px;
-        }
-        .rule-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.85rem; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        button {
-            padding: 12px 30px; font-size: 1rem; background: #0ea5e9; border: none;
-            color: white; cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; border-radius: 4px;
-        }
-        #ui-layer { 
-            position: fixed; top: 0; left: 0; width: 100%; padding: 15px; 
-            color: white; pointer-events: none; z-index: 50; display: flex; justify-content: space-between; 
-        }
-        .stat-box { background: rgba(0,0,0,0.7); padding: 6px 10px; border: 1px solid #333; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
-        #combo-display { 
-            position: fixed; top: 50px; left: 50%; transform: translateX(-50%); 
-            color: #fbbf24; font-size: 1.2rem; font-weight: 900; opacity: 0; text-shadow: 0 0 10px #fbbf24; pointer-events: none;
-        }
+        h1 { font-size: 2.5rem; color: #0ea5e9; text-shadow: 0 0 20px #0ea5e9; margin-bottom: 10px; }
+        p { color: #94a3b8; max-width: 300px; margin-bottom: 20px; }
+        button { padding: 15px 40px; font-size: 1.2rem; background: #0ea5e9; border: none; color: white; font-weight: bold; cursor: pointer; }
+        #ui-layer { position: fixed; top: 20px; left: 20px; right: 20px; color: white; pointer-events: none; z-index: 50; display: flex; justify-content: space-between; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="game-container"></div>
     <div id="intro-screen" class="overlay">
         <h1>NEON SCAVENGER</h1>
-        <p>Infinite data collection. Infinite system decay.</p>
-        <div class="rules-box">
-            <div class="rule-item"><div class="dot" style="background:#0ea5e9"></div> <span>Tap <b>BLUE</b> for points</span></div>
-            <div class="rule-item"><div class="dot" style="background:#ef4444"></div> <span>Avoid <b>RED</b> (Damage)</span></div>
-            <div class="rule-item"><div class="dot" style="background:#fbbf24"></div> <span><b>5x Streak</b> = 2x Points</span></div>
-        </div>
+        <p>Tap Blue. Avoid Red. Survive.</p>
         <button onclick="startGame()">START</button>
     </div>
     <div id="game-over" class="overlay hidden">
-        <h1 style="color: #ef4444;">SYSTEM FAILURE</h1>
+        <h1 style="color: #ef4444;">FAILED</h1>
         <p>Score: <span id="final-score">0</span></p>
         <button onclick="location.reload()">RETRY</button>
     </div>
     <div id="ui-layer" class="hidden">
-        <div class="stat-box">SCORE: <span id="score">0</span></div>
-        <div class="stat-box">HP: <span id="hp">100</span>%</div>
+        <div>SCORE: <span id="score">0</span></div>
+        <div>HP: <span id="hp">100</span>%</div>
     </div>
-    <div id="combo-display">COMBO x2</div>
 
     <script>
         let gameScene;
-        let isGameRunning = false;
-
         function startGame() {
-            if(isGameRunning) return;
-            isGameRunning = true;
             document.getElementById('intro-screen').classList.add('hidden');
             document.getElementById('ui-layer').classList.remove('hidden');
-            
-            const config = {
-                type: Phaser.AUTO,
-                width: window.innerWidth,
-                height: window.innerHeight,
-                parent: 'game-container',
-                backgroundColor: '#050505',
+            new Phaser.Game({
+                type: Phaser.AUTO, width: window.innerWidth, height: window.innerHeight,
+                parent: 'game-container', backgroundColor: '#050505',
+                physics: { default: 'arcade', arcade: { debug: false } },
                 scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-                scene: { create: createGame },
-                input: { activePointers: 3 }
-            };
-            new Phaser.Game(config);
+                scene: { create: create, update: update }
+            });
         }
 
-        function createGame() {
+        function create() {
             gameScene = this;
-            gameScene.score = 0;
-            gameScene.hp = 100;
-            gameScene.combo = 0;
-            gameScene.heat = 1;
-            gameScene.items = gameScene.add.group();
-            gameScene.maxItems = 6; // Allow more items on screen at once
+            this.score = 0; this.hp = 100; this.heat = 1;
+            this.items = this.physics.add.group();
+            this.lastSpawn = 0;
 
-            // Background Grid
-            const grid = this.add.grid(400, 300, 800, 600, 40, 40, 0x0f172a, 1, 0x1e293b, 0.3);
-            grid.setScrollFactor(0);
+            // Particle Texture
+            const g = this.make.graphics({x:0,y:0,add:false});
+            g.fillStyle(0xffffff); g.fillCircle(4,4,4); g.generateTexture('p',8,8);
+            this.emitter = this.add.particles(0,0,'p',{ speed:100, scale:{start:1,end:0}, blendMode:'ADD', lifespan:400, on:false });
 
-            // Particle Texture (Fixed the sparkling dot issue)
-            const g = gameScene.make.graphics({x: 0, y: 0, add: false});
-            g.fillStyle(0xffffff, 1); g.fillCircle(4, 4, 4);
-            g.generateTexture('particle', 8, 8);
-            g.destroy();
-            
-            gameScene.particles = gameScene.add.particles('particle');
-            gameScene.emitter = gameScene.particles.createEmitter({
-                speed: 100, scale: { start: 1, end: 0 }, blendMode: 'ADD', lifespan: 400, on: false
+            this.input.on('gameobjectdown', (pointer, item) => {
+                if(!item.active) return;
+                if(item.getData('type') === 'virus') {
+                    this.hp -= 20; this.cameras.main.shake(100, 0.02);
+                } else {
+                    this.score += 50;
+                    this.emitter.emitParticleAt(item.x, item.y, 10);
+                }
+                item.destroy(); // Phaser GC handles this
+                updateUI();
+                if(this.hp <= 0) {
+                    this.scene.pause();
+                    document.getElementById('game-over').classList.remove('hidden');
+                    document.getElementById('final-score').innerText = this.score;
+                }
             });
+        }
 
-            // Infinite Spawning
-            gameScene.spawnLoop = gameScene.time.addEvent({ 
-                delay: 800, callback: spawnItem, callbackScope: gameScene, loop: true 
-            });
+        function update(time) {
+            if(this.scene.isPaused()) return;
             
-            gameScene.input.on('gameobjectdown', handleItemClick);
+            // Simple infinite spawning logic
+            if(time > this.lastSpawn + (1000 / this.heat)) {
+                spawnItem.call(this);
+                this.lastSpawn = time;
+                this.heat += 0.01; // Slowly increase difficulty
+            }
         }
 
         function spawnItem() {
-            // Ensure we don't run if game is paused
-            if(!gameScene || gameScene.scene.isPaused()) return;
-
-            // Limit items on screen to prevent chaos
-            if(gameScene.items.getLength() >= gameScene.maxItems) return;
-
-            const w = this.scale.width;
-            const h = this.scale.height;
-            const margin = 50;
-            const x = Phaser.Math.Between(margin, w - margin);
-            const y = Phaser.Math.Between(margin + 50, h - margin);
+            const x = Phaser.Math.Between(50, this.scale.width - 50);
+            const y = Phaser.Math.Between(100, this.scale.height - 100);
             const type = Math.random() > 0.8 ? 'virus' : 'loot';
-            
-            const item = this.add.graphics();
             const color = type === 'loot' ? 0x0ea5e9 : 0xef4444;
-            const size = 20; 
-            
-            if (type === 'loot') {
-                item.lineStyle(2, color, 1); item.strokeCircle(0, 0, size);
-                item.fillStyle(color, 0.2); item.fillCircle(0, 0, size);
-            } else {
-                item.fillStyle(color, 0.8);
-                for(let i=0; i<5; i++) item.fillTriangle(0, 0, size, size, size*2, 0).rotateAround(0, 0, (Math.PI*2)/5);
-            }
 
-            item.x = x; item.y = y;
-            item.setData({ type: type, active: true });
-            item.setScale(0);
-            
-            this.tweens.add({ targets: item, scale: 1, duration: 300, ease: 'Back.out' });
+            const g = this.add.graphics();
+            g.fillStyle(color, 1);
+            if(type === 'loot') g.fillCircle(0,0,20);
+            else g.fillRect(-15,-15,30,30);
 
-            // Move and then Despawn
-            this.tweens.add({
-                targets: item, x: x + Phaser.Math.Between(-100, 100), y: y + Phaser.Math.Between(-100, 100),
-                duration: 2500 / this.heat, yoyo: true,
-                onComplete: () => {
-                    if(item.active) {
-                        this.tweens.add({ targets: item, alpha: 0, scale: 0, duration: 150, onComplete: () => {
-                            item.destroy();
-                            if(gameScene && type === 'loot') { gameScene.combo = 0; updateComboUI(); }
-                        }});
-                    }
-                }
+            const item = this.items.create(x, y, g); // Add to physics group
+            item.setData('type', type);
+            item.setInteractive({ hitArea: new Phaser.Geom.Circle(0,0,25), hitAreaCallback: Phaser.Geom.Circle.Contains });
+            
+            // Random movement using physics
+            item.setVelocity(Phaser.Math.Between(-50,50), Phaser.Math.Between(-50,50));
+            item.setCollideWorldBounds(true);
+            item.setBounce(1);
+
+            // Auto-destroy after 3 seconds (Garbage Collection)
+            this.time.delayedCall(3000 / this.heat, () => {
+                if(item.active) item.destroy();
             });
-
-            item.setInteractive({ hitArea: new Phaser.Geom.Circle(0, 0, 35), hitAreaCallback: Phaser.Geom.Circle.Contains });
-            gameScene.items.add(item);
-        }
-
-        function handleItemClick(pointer, item) {
-            if(!item.active || !gameScene) return;
-            const type = item.getData('type');
-            
-            if(type === 'virus') {
-                gameScene.hp -= 20;
-                gameScene.cameras.main.shake(150, 0.015);
-                gameScene.combo = 0;
-                // Red flash
-                gameScene.cameras.main.flash(200, 239, 68, 68);
-            } else {
-                gameScene.combo++;
-                const mult = gameScene.combo >= 5 ? 2 : 1;
-                gameScene.score += 50 * mult;
-                // Emit particles
-                gameScene.emitter.emitParticleAt(item.x, item.y, 10);
-                if(gameScene.combo === 5) {
-                    document.getElementById('combo-display').style.opacity = 1;
-                    gameScene.cameras.main.flash(400, 251, 191, 36);
-                }
-            }
-
-            item.active = false;
-            gameScene.tweens.add({ targets: item, scale: 1.2, alpha: 0, duration: 80, onComplete: () => {
-                item.destroy();
-                if(gameScene) gameScene.items.remove(item);
-            }});
-            
-            if(gameScene) {
-                gameScene.heat += 0.02;
-                // Make spawning faster as heat increases, but cap it
-                const newDelay = Math.max(300, 800 / gameScene.heat);
-                gameScene.spawnLoop.reset(newDelay);
-                updateUI();
-                if(gameScene.hp <= 0) endGame();
-            }
-        }
-
-        function endGame() {
-            if(!gameScene) return;
-            gameScene.scene.pause();
-            document.getElementById('game-over').classList.remove('hidden');
-            document.getElementById('ui-layer').classList.add('hidden');
-            document.getElementById('final-score').innerText = gameScene.score;
         }
 
         function updateUI() {
-            if(!gameScene) return;
             document.getElementById('score').innerText = gameScene.score;
             document.getElementById('hp').innerText = Math.max(0, gameScene.hp);
-            updateComboUI();
-        }
-
-        function updateComboUI() {
-            if(!gameScene || gameScene.combo < 5) document.getElementById('combo-display').style.opacity = 0;
         }
     </script>
 </body>
